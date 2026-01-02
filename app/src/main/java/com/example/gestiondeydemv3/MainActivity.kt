@@ -114,6 +114,8 @@ fun DriversScreen(
     val loading by viewModel.loading
     val drivers = viewModel.filteredDrivers()
     var search by remember { mutableStateOf("") }
+    var selectedDriver by remember { mutableStateOf<Driver?>(null) }
+
 
     Column(
         modifier = Modifier
@@ -156,45 +158,24 @@ fun DriversScreen(
                         onApprove = {
                             viewModel.approveDriver(driver.id)
                         },
-                        onUpdateSolde = { }
+                        onUpdateSolde = { selectedDriver = it }
                     )
                 }
             }
         }
     }
-}
 
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DriverSearchBar(
-    search: String,
-    onSearchChange: (String) -> Unit
-) {
-    SearchBar(
-        query = search,
-        onQueryChange = { newQuery ->
-            onSearchChange(newQuery)
-        },
-        onSearch = { /* optionnel */ },
-        active = false,
-        onActiveChange = {},
-        placeholder = {
-            Text("Rechercher par numéro")
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "Recherche"
-            )
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 12.dp)
-    ) {
-        // ❌ PAS DE CONTENU DROPDOWN (on filtre la liste directement)
+    selectedDriver?.let { driver ->
+        UpdateSoldeDialog(
+            driver = driver,
+            onDismiss = { selectedDriver = null },
+            onConfirm = { newSolde ->
+                viewModel.updateSolde(driver.id, newSolde)
+                selectedDriver = null
+            }
+        )
     }
+
 }
 
 
