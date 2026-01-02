@@ -14,6 +14,7 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
     val drivers = mutableStateListOf<Driver>()
     val loading = mutableStateOf(false)
+    val searchQuery = mutableStateOf("")
 
     private val queue = Volley.newRequestQueue(application)
 
@@ -58,6 +59,18 @@ class DriverViewModel(application: Application) : AndroidViewModel(application) 
 
         queue.add(request)
     }
+
+    fun filteredDrivers(): List<Driver> {
+        val query = searchQuery.value.trim()
+
+        if (query.isEmpty()) return drivers
+
+        return drivers.filter {
+            it.phone.contains(query, ignoreCase = true)
+        }
+    }
+
+
 
 
     fun approveDriver(driverId: Int) {

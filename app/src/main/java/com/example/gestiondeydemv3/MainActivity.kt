@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.*
@@ -105,22 +106,41 @@ fun DashboardScreen() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriversScreen(
     viewModel: DriverViewModel = viewModel()
 ) {
-    val drivers = viewModel.drivers
-    val loading = viewModel.loading.value
-
-    var showSoldeDialog by remember { mutableStateOf(false) }
-    var selectedDriver by remember { mutableStateOf<Driver?>(null) }
+    val loading by viewModel.loading
+    val drivers = viewModel.filteredDrivers()
+    var search by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+
         Text("🚖 Chauffeurs", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 🔍 SEARCH BAR (VISIBLE)
+        SearchBar(
+            query = search,
+            onQueryChange = {
+                search = it
+                viewModel.searchQuery.value = it
+            },
+            onSearch = {},
+            active = false, // 🔥 IMPORTANT
+            onActiveChange = {},
+            placeholder = { Text("Rechercher par numéro") },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {}
+
         Spacer(modifier = Modifier.height(12.dp))
 
         if (loading) {
@@ -129,34 +149,55 @@ fun DriversScreen(
             LazyColumn {
                 items(
                     items = drivers,
-                    key = { it.id } // 🔥 IMPORTANT
+                    key = { it.id }
                 ) { driver ->
                     DriverItem(
                         driver = driver,
                         onApprove = {
-                            viewModel.approveDriver(it.id)
+                            viewModel.approveDriver(driver.id)
                         },
-                        onUpdateSolde = {
-                            selectedDriver = it
-                            showSoldeDialog = true
-                        }
+                        onUpdateSolde = { }
                     )
                 }
             }
         }
     }
+}
 
-    if (showSoldeDialog && selectedDriver != null) {
-        UpdateSoldeDialog(
-            driver = selectedDriver!!,
-            onDismiss = { showSoldeDialog = false },
-            onConfirm = { newSolde ->
-                viewModel.updateSolde(selectedDriver!!.id, newSolde)
-                showSoldeDialog = false
-            }
-        )
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DriverSearchBar(
+    search: String,
+    onSearchChange: (String) -> Unit
+) {
+    SearchBar(
+        query = search,
+        onQueryChange = { newQuery ->
+            onSearchChange(newQuery)
+        },
+        onSearch = { /* optionnel */ },
+        active = false,
+        onActiveChange = {},
+        placeholder = {
+            Text("Rechercher par numéro")
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Recherche"
+            )
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+    ) {
+        // ❌ PAS DE CONTENU DROPDOWN (on filtre la liste directement)
     }
 }
+
+
 
 
 @Composable
