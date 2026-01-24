@@ -284,12 +284,12 @@ fun DriversScreen(
     var selectedDriver by remember { mutableStateOf<Driver?>(null) }
 
     // ================= AUTO REFRESH 30s =================
-    LaunchedEffect(Unit) {
-        while (true) {
-            viewModel.loadDrivers()
-            kotlinx.coroutines.delay(30_000)
-        }
-    }
+//    LaunchedEffect(Unit) {
+//        while (true) {
+//            viewModel.loadDrivers()
+//            kotlinx.coroutines.delay(30_000)
+//        }
+//    }
 
     Column(
         modifier = Modifier
