@@ -1,6 +1,7 @@
 package com.example.gestiondeydemv3
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,6 +25,12 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import com.example.gestiondeydemv3.ui.theme.GestionDeydemV3Theme
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import com.android.volley.toolbox.StringRequest
+import com.android.volley.toolbox.Volley
 
 
 class MainActivity : ComponentActivity() {
@@ -76,11 +83,167 @@ fun AdminDashboardApp() {
                     AdminDestinations.DASHBOARD -> DashboardScreen()
                     AdminDestinations.DRIVERS -> DriversScreen()
                     AdminDestinations.PROFILE -> AdminProfileScreen()
+                    AdminDestinations.NOTIFICATIONS -> CreateNotificationScreen()
                 }
             }
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreateNotificationScreen() {
+
+    val context = LocalContext.current // 🔹 CONTEXT COMPOSABLE
+
+    var title by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    var actionUrl by remember { mutableStateOf("") }
+    var expanded by remember { mutableStateOf(false) }
+    var type by remember { mutableStateOf("info") }
+    var isActive by remember { mutableStateOf(true) }
+
+    val types = listOf("urgent", "update", "info")
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+
+        Text("🔔 Envoyer une notification",
+            style = MaterialTheme.typography.headlineMedium)
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Titre") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = message,
+            onValueChange = { message = it },
+            label = { Text("Message") },
+            minLines = 3,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
+            OutlinedTextField(
+                value = type,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Type") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+                },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                types.forEach {
+                    DropdownMenuItem(
+                        text = { Text(it) },
+                        onClick = {
+                            type = it
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = actionUrl,
+            onValueChange = { actionUrl = it },
+            label = { Text("Lien (optionnel)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Notification active")
+            Spacer(modifier = Modifier.width(8.dp))
+            Switch(
+                checked = isActive,
+                onCheckedChange = { isActive = it }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                sendNotification(
+                    context,
+                    title, message, type, actionUrl, isActive
+                )
+            }
+        ) {
+            Text("📤 Envoyer")
+        }
+    }
+}
+
+// ✅ Maintenant le contexte est passé correctement
+fun sendNotification(
+    context: android.content.Context,
+    title: String,
+    message: String,
+    type: String,
+    actionUrl: String,
+    isActive: Boolean
+) {
+    val url = "https://pisco.alwaysdata.net/create_notification.php"
+
+    val request = object : StringRequest(
+        Method.POST,
+        url,
+        { response ->
+            // succès
+            Toast.makeText(context, "Notification envoyée ✅", Toast.LENGTH_SHORT).show()
+        },
+        { error ->
+            // erreur
+            Toast.makeText(context, "Erreur: ${error.message}", Toast.LENGTH_LONG).show()
+        }
+    ) {
+        override fun getParams(): Map<String, String> {
+            return mapOf(
+                "title" to title,
+                "message" to message,
+                "type" to type,
+                "action_url" to actionUrl,
+                "is_active" to if (isActive) "1" else "0"
+            )
+        }
+    }
+
+    Volley.newRequestQueue(context).add(request)
+}
+
+
+
+
 
 enum class AdminDestinations(
     val label: String,
@@ -88,6 +251,7 @@ enum class AdminDestinations(
 ) {
     DASHBOARD("Dashboard", Icons.Default.Home),
     DRIVERS("Chauffeurs", Icons.Default.Person),
+    NOTIFICATIONS("Notifications", Icons.Default.Notifications),
     PROFILE("Profil", Icons.Default.AccountBox),
 }
 
@@ -106,6 +270,7 @@ fun DashboardScreen() {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriversScreen(
@@ -113,9 +278,18 @@ fun DriversScreen(
 ) {
     val loading by viewModel.loading
     val drivers = viewModel.filteredDrivers()
+    val totalDrivers = viewModel.drivers.size
+
     var search by remember { mutableStateOf("") }
     var selectedDriver by remember { mutableStateOf<Driver?>(null) }
 
+    // ================= AUTO REFRESH 30s =================
+    LaunchedEffect(Unit) {
+        while (true) {
+            viewModel.loadDrivers()
+            kotlinx.coroutines.delay(30_000)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -123,10 +297,38 @@ fun DriversScreen(
             .padding(16.dp)
     ) {
 
-        Text("🚖 Chauffeurs", style = MaterialTheme.typography.headlineMedium)
+        // ================= HEADER =================
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "🚖 Chauffeurs",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Text(
+                    text = "👥 Inscrits : $totalDrivers",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
+
+            IconButton(
+                onClick = { viewModel.loadDrivers() },
+                enabled = !loading
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Rafraîchir"
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 🔍 SEARCH BAR (VISIBLE)
+        // ================= SEARCH =================
         SearchBar(
             query = search,
             onQueryChange = {
@@ -134,7 +336,7 @@ fun DriversScreen(
                 viewModel.searchQuery.value = it
             },
             onSearch = {},
-            active = false, // 🔥 IMPORTANT
+            active = false,
             onActiveChange = {},
             placeholder = { Text("Rechercher par numéro") },
             leadingIcon = {
@@ -145,8 +347,14 @@ fun DriversScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // ================= CONTENT =================
         if (loading) {
-            CircularProgressIndicator()
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
         } else {
             LazyColumn {
                 items(
@@ -158,13 +366,16 @@ fun DriversScreen(
                         onApprove = {
                             viewModel.approveDriver(driver.id)
                         },
-                        onUpdateSolde = { selectedDriver = it }
+                        onUpdateSolde = {
+                            selectedDriver = it
+                        }
                     )
                 }
             }
         }
     }
 
+    // ================= DIALOG SOLDE =================
     selectedDriver?.let { driver ->
         UpdateSoldeDialog(
             driver = driver,
@@ -175,8 +386,9 @@ fun DriversScreen(
             }
         )
     }
-
 }
+
+
 
 
 
