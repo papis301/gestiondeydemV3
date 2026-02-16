@@ -1,5 +1,6 @@
 package com.example.gestiondeydemv3
 
+import ClientViewModel
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -50,7 +51,7 @@ class MainActivity : ComponentActivity() {
 fun AdminDashboardApp() {
 
     var currentDestination by rememberSaveable {
-        mutableStateOf(AdminDestinations.DASHBOARD)
+        mutableStateOf(AdminDestinations.CLIENTS)
     }
 
     NavigationSuiteScaffold(
@@ -80,7 +81,7 @@ fun AdminDashboardApp() {
                     .fillMaxSize()
             ) {
                 when (currentDestination) {
-                    AdminDestinations.DASHBOARD -> DashboardScreen()
+                    AdminDestinations.CLIENTS -> ClientsScreen()
                     AdminDestinations.DRIVERS -> DriversScreen()
                     AdminDestinations.PROFILE -> AdminProfileScreen()
                     AdminDestinations.NOTIFICATIONS -> CreateNotificationScreen()
@@ -89,6 +90,26 @@ fun AdminDashboardApp() {
         }
     }
 }
+
+@Composable
+fun ClientItem(client: Client) {
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+
+            Text("👤 ${client.name}", fontWeight = FontWeight.Bold)
+            Text("📞 ${client.phone}")
+            Text("📅 Inscrit le : ${client.createdAt}")
+
+        }
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -242,6 +263,62 @@ fun sendNotification(
 }
 
 
+@Composable
+fun ClientsScreen(
+    viewModel: ClientViewModel = viewModel()
+) {
+    val loading by viewModel.loading
+    val clients = viewModel.clients
+    val totalClients = clients.size
+
+    // AUTO REFRESH
+    LaunchedEffect(Unit) {
+        while (true) {
+            viewModel.fetchClients()
+            kotlinx.coroutines.delay(30000)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+
+        // HEADER
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("👥 Clients", style = MaterialTheme.typography.headlineMedium)
+                Text("Total inscrits : $totalClients")
+            }
+
+            IconButton(onClick = { viewModel.fetchClients() }) {
+                Icon(Icons.Default.Refresh, contentDescription = null)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (loading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn {
+                items(clients, key = { it.id }) { client ->
+                    ClientItem(client)
+                }
+            }
+        }
+    }
+}
 
 
 
@@ -249,7 +326,7 @@ enum class AdminDestinations(
     val label: String,
     val icon: ImageVector,
 ) {
-    DASHBOARD("Dashboard", Icons.Default.Home),
+    CLIENTS("Clients", Icons.Default.Person),
     DRIVERS("Chauffeurs", Icons.Default.Person),
     NOTIFICATIONS("Notifications", Icons.Default.Notifications),
     PROFILE("Profil", Icons.Default.AccountBox),
@@ -534,3 +611,5 @@ fun AdminProfileScreen() {
         }
     }
 }
+
+
