@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -355,18 +356,12 @@ fun DriversScreen(
 ) {
     val loading by viewModel.loading
     val drivers = viewModel.filteredDrivers()
-    val totalDrivers = viewModel.drivers.size
+    val totalDrivers = drivers.size   // ✅ Compteur dynamique
 
     var search by remember { mutableStateOf("") }
     var selectedDriver by remember { mutableStateOf<Driver?>(null) }
-
-    // ================= AUTO REFRESH 30s =================
-//    LaunchedEffect(Unit) {
-//        while (true) {
-//            viewModel.loadDrivers()
-//            kotlinx.coroutines.delay(30_000)
-//        }
-//    }
+    var selectedDriverDetails by remember { mutableStateOf<Driver?>(null) }
+    val currentFilter by viewModel.filterStatus
 
     Column(
         modifier = Modifier
@@ -386,7 +381,7 @@ fun DriversScreen(
                     style = MaterialTheme.typography.headlineMedium
                 )
                 Text(
-                    text = "👥 Inscrits : $totalDrivers",
+                    text = "👥 Affichés : $totalDrivers",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray
                 )
@@ -401,6 +396,32 @@ fun DriversScreen(
                     contentDescription = "Rafraîchir"
                 )
             }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ================= FILTER =================
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+
+            FilterChip(
+                selected = currentFilter == "all",
+                onClick = { viewModel.filterStatus.value = "all" },
+                label = { Text("Tous") }
+            )
+
+            FilterChip(
+                selected = currentFilter == "active",
+                onClick = { viewModel.filterStatus.value = "active" },
+                label = { Text("Actifs") }
+            )
+
+            FilterChip(
+                selected = currentFilter == "blocked",
+                onClick = { viewModel.filterStatus.value = "blocked" },
+                label = { Text("Bloqués") }
+            )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -427,13 +448,17 @@ fun DriversScreen(
         // ================= CONTENT =================
         if (loading) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
             }
         } else {
-            LazyColumn {
+            LazyColumn(
+                modifier = Modifier.weight(1f)
+            ) {
                 items(
                     items = drivers,
                     key = { it.id }
@@ -445,6 +470,9 @@ fun DriversScreen(
                         },
                         onUpdateSolde = {
                             selectedDriver = it
+                        },
+                        onDriverClick = {
+                            selectedDriverDetails = it
                         }
                     )
                 }
@@ -463,6 +491,101 @@ fun DriversScreen(
             }
         )
     }
+
+    // ================= DIALOG DETAILS =================
+    selectedDriverDetails?.let { driver ->
+        DriverDetailsDialog(
+            driver = driver,
+            viewModel = viewModel,
+            onDismiss = { selectedDriverDetails = null }
+        )
+    }
+}
+
+@Composable
+fun DriverDetailsDialog(
+    driver: Driver,
+    viewModel: DriverViewModel,
+    onDismiss: () -> Unit
+){
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Column {
+
+                Button(
+                    onClick = {
+                        viewModel.toggleBlockDriver(driver.id)
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (driver.bloque == 1)
+                            Color(0xFF4CAF50) // vert = débloquer
+                        else
+                            Color.Red // rouge = bloquer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        if (driver.bloque == 1)
+                            "Débloquer le chauffeur"
+                        else
+                            "Bloquer le chauffeur"
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TextButton(onClick = onDismiss) {
+                    Text("Fermer")
+                }
+            }
+        },
+        title = {
+            Text("👤 Détails Chauffeur")
+        },
+        text = {
+            Column {
+
+                Text("📞 Téléphone : ${driver.phone}")
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text("💰 Solde : ${driver.solde} FCFA")
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text("🚗 Véhicule : ${driver.typeVehicule}")
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text("📊 Total courses : ${driver.totalCourses}")
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text("⭐ Rating : ${driver.ratingAverage}")
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    if (driver.isOnline == 1)
+                        "🟢 En ligne"
+                    else
+                        "🔴 Hors ligne"
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    if (driver.bloque == 1)
+                        "⛔ Bloqué par admin"
+                    else
+                        "✅ Actif"
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text("📄 Documents : ${driver.docsStatus}")
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text("📅 Inscrit le : ${driver.createdAt}")
+            }
+        }
+    )
 }
 
 
@@ -513,7 +636,8 @@ fun UpdateSoldeDialog(
 fun DriverItem(
     driver: Driver,
     onApprove: (Driver) -> Unit,
-    onUpdateSolde: (Driver) -> Unit
+    onUpdateSolde: (Driver) -> Unit,
+    onDriverClick: (Driver) -> Unit
 ) {
 
     val isActive =
@@ -545,7 +669,8 @@ fun DriverItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 6.dp)
+        .clickable { onDriverClick(driver) },
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
