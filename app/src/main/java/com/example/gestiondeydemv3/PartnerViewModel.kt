@@ -177,4 +177,120 @@ class PartnerViewModel(application: Application) : AndroidViewModel(application)
 
         queue.add(request)
     }
+
+    fun updatePartnerSolde(
+        partnerId: Int,
+        amount: Int,
+        type: String // "add" ou "remove"
+    ) {
+
+        val url = "https://pisco.alwaysdata.net/update_partner_solde.php"
+
+        val request = object : StringRequest(
+            Method.POST,
+            url,
+            { response ->
+
+                try {
+                    val json = JSONObject(response)
+                    val message = json.optString("message", "Réponse serveur")
+
+                    Toast.makeText(
+                        getApplication(),
+                        message,
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                    if (json.optBoolean("success", false)) {
+                        loadPartners()
+                    }
+
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        getApplication(),
+                        "Erreur parsing serveur",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            {
+                Toast.makeText(
+                    getApplication(),
+                    "Erreur serveur",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        ) {
+            override fun getParams(): Map<String, String> {
+                return mapOf(
+                    "partner_id" to partnerId.toString(),
+                    "amount" to amount.toString(),
+                    "type" to type
+                )
+            }
+        }
+
+        queue.add(request)
+    }
+
+    fun updatePartner(
+        id: Int,
+        nom: String,
+        email: String,
+        telephone: String,
+        adresse: String,
+        commission: Int
+    ) {
+
+        val url = "https://pisco.alwaysdata.net/update_partner.php"
+
+        val request = object : StringRequest(
+            Method.POST,
+            url,
+            { response ->
+
+                try {
+                    val json = JSONObject(response)
+                    val message = json.optString("message", "Réponse serveur")
+
+                    Toast.makeText(
+                        getApplication(),
+                        message,
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                    if (json.optBoolean("success", false)) {
+                        loadPartners()
+                    }
+
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        getApplication(),
+                        "Erreur parsing serveur",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            {
+                Toast.makeText(
+                    getApplication(),
+                    "Erreur serveur",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        ) {
+            override fun getParams(): Map<String, String> {
+                return mapOf(
+                    "id" to id.toString(),
+                    "nom" to nom,
+                    "email" to email,
+                    "telephone" to telephone,
+                    "adresse" to adresse,
+                    "commission_percent" to commission.toString()
+                )
+            }
+        }
+
+        queue.add(request)
+    }
 }

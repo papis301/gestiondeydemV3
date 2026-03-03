@@ -248,35 +248,259 @@ fun AddPartnerDialog(
 }
 
 @Composable
-fun PartnerItem(partner: Partner, viewModel: PartnerViewModel) {
+fun PartnerItem(
+    partner: Partner,
+    viewModel: PartnerViewModel
+) {
+
+    var showDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(6.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
 
-            Text("🏢 ${partner.nom}", fontWeight = FontWeight.Bold)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+
+            Text(
+                text = "🏢 ${partner.nom}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             Text("📧 ${partner.email}")
             Text("📞 ${partner.telephone}")
             Text("📍 ${partner.adresse}")
             Text("💰 Commission : ${partner.commissionPercent}%")
-            Text("💳 Solde : ${partner.solde} FCFA")
-            Text("📅 ${partner.createdAt}")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "💳 Solde : ${partner.solde} FCFA",
+                fontWeight = FontWeight.Bold,
+                color = if (partner.solde > 0)
+                    Color(0xFF2E7D32)
+                else
+                    Color.Red
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { showDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Modifier le solde")
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Button(
-                onClick = { viewModel.deletePartner(partner.id) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                onClick = { showEditDialog = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Supprimer")
+                Text("Modifier")
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedButton(
+                onClick = { viewModel.deletePartner(partner.id) },
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.Red
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Supprimer partenaire")
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "📅 Créé le : ${partner.createdAt}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
         }
     }
+
+    if (showDialog) {
+        UpdatePartnerSoldeDialog(
+            partner = partner,
+            viewModel = viewModel,
+            onDismiss = { showDialog = false }
+        )
+    }
+
+    if (showEditDialog) {
+        EditPartnerDialog(
+            partner = partner,
+            viewModel = viewModel,
+            onDismiss = { showEditDialog = false }
+        )
+    }
+}
+
+@Composable
+fun EditPartnerDialog(
+    partner: Partner,
+    viewModel: PartnerViewModel,
+    onDismiss: () -> Unit
+) {
+
+    var nom by remember { mutableStateOf(partner.nom) }
+    var email by remember { mutableStateOf(partner.email) }
+    var telephone by remember { mutableStateOf(partner.telephone) }
+    var adresse by remember { mutableStateOf(partner.adresse) }
+    var commission by remember { mutableStateOf(partner.commissionPercent.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(onClick = {
+                viewModel.updatePartner(
+                    id = partner.id,
+                    nom = nom,
+                    email = email,
+                    telephone = telephone,
+                    adresse = adresse,
+                    commission = commission.toIntOrNull() ?: 20
+                )
+                onDismiss()
+            }) {
+                Text("Modifier")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        },
+        title = { Text("Modifier partenaire") },
+        text = {
+            Column {
+
+                OutlinedTextField(
+                    value = nom,
+                    onValueChange = { nom = it },
+                    label = { Text("Nom") }
+                )
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") }
+                )
+
+                OutlinedTextField(
+                    value = telephone,
+                    onValueChange = { telephone = it },
+                    label = { Text("Téléphone") }
+                )
+
+                OutlinedTextField(
+                    value = adresse,
+                    onValueChange = { adresse = it },
+                    label = { Text("Adresse") }
+                )
+
+                OutlinedTextField(
+                    value = commission,
+                    onValueChange = { commission = it },
+                    label = { Text("Commission %") }
+                )
+            }
+        }
+    )
+}
+
+@Composable
+fun UpdatePartnerSoldeDialog(
+    partner: Partner,
+    viewModel: PartnerViewModel,
+    onDismiss: () -> Unit
+) {
+
+    var amount by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf("add") } // add ou remove
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Modifier le solde")
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+
+                    val value = amount.toIntOrNull()
+
+                    if (value != null && value > 0) {
+                        viewModel.updatePartnerSolde(
+                            partnerId = partner.id,
+                            amount = value,
+                            type = type
+                        )
+                        onDismiss()
+                    }
+                }
+            ) {
+                Text("Valider")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        },
+        text = {
+            Column {
+
+                Text("Partenaire : ${partner.nom}")
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text("Solde actuel : ${partner.solde} FCFA")
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Choix action
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+
+                    FilterChip(
+                        selected = type == "add",
+                        onClick = { type = "add" },
+                        label = { Text("Ajouter") }
+                    )
+
+                    FilterChip(
+                        selected = type == "remove",
+                        onClick = { type = "remove" },
+                        label = { Text("Retirer") }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("Montant") },
+                    singleLine = true
+                )
+            }
+        }
+    )
 }
 
 @Composable
