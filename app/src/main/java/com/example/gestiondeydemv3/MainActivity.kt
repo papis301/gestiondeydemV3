@@ -84,9 +84,196 @@ fun AdminDashboardApp() {
                 when (currentDestination) {
                     AdminDestinations.CLIENTS -> ClientsScreen()
                     AdminDestinations.DRIVERS -> DriversScreen()
-                    AdminDestinations.PROFILE -> AdminProfileScreen()
+                    AdminDestinations.PARTNERS -> PartnersScreen()
                     AdminDestinations.NOTIFICATIONS -> CreateNotificationScreen()
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PartnersScreen(
+    viewModel: PartnerViewModel = viewModel()
+) {
+
+    val loading by viewModel.loading
+    val partners = viewModel.partners
+    var showDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+
+        // HEADER
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("🤝 Partenaires", style = MaterialTheme.typography.headlineMedium)
+                Text("Total : ${partners.size}")
+            }
+
+            IconButton(onClick = { viewModel.loadPartners() }) {
+                Icon(Icons.Default.Refresh, contentDescription = null)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = { showDialog = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("➕ Ajouter un partenaire")
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (loading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn {
+                items(partners, key = { it.id }) { partner ->
+                    PartnerItem(partner, viewModel)
+                }
+            }
+        }
+    }
+
+    if (showDialog) {
+        AddPartnerDialog(
+            onDismiss = { showDialog = false },
+            onCreate = { nom, email, password, telephone, adresse, commission ->
+                viewModel.createPartner(
+                    nom,
+                    email,
+                    password,
+                    telephone,
+                    adresse,
+                    commission
+                )
+                showDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun AddPartnerDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String, String, String, String, String, Int) -> Unit
+) {
+
+    var nom by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var telephone by remember { mutableStateOf("") }
+    var adresse by remember { mutableStateOf("") }
+    var commission by remember { mutableStateOf("20") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(onClick = {
+                onCreate(
+                    nom,
+                    email,
+                    password,
+                    telephone,
+                    adresse,
+                    commission.toIntOrNull() ?: 20
+                )
+            }) {
+                Text("Créer")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        },
+        title = { Text("Nouveau partenaire") },
+        text = {
+            Column {
+
+                OutlinedTextField(
+                    value = nom,
+                    onValueChange = { nom = it },
+                    label = { Text("Nom") }
+                )
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email (login)") }
+                )
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Mot de passe") }
+                )
+
+                OutlinedTextField(
+                    value = telephone,
+                    onValueChange = { telephone = it },
+                    label = { Text("Téléphone") }
+                )
+
+                OutlinedTextField(
+                    value = adresse,
+                    onValueChange = { adresse = it },
+                    label = { Text("Adresse") }
+                )
+
+                OutlinedTextField(
+                    value = commission,
+                    onValueChange = { commission = it },
+                    label = { Text("Commission %") }
+                )
+            }
+        }
+    )
+}
+
+@Composable
+fun PartnerItem(partner: Partner, viewModel: PartnerViewModel) {
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+
+            Text("🏢 ${partner.nom}", fontWeight = FontWeight.Bold)
+            Text("📧 ${partner.email}")
+            Text("📞 ${partner.telephone}")
+            Text("📍 ${partner.adresse}")
+            Text("💰 Commission : ${partner.commissionPercent}%")
+            Text("💳 Solde : ${partner.solde} FCFA")
+            Text("📅 ${partner.createdAt}")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = { viewModel.deletePartner(partner.id) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Supprimer")
             }
         }
     }
@@ -330,7 +517,7 @@ enum class AdminDestinations(
     CLIENTS("Clients", Icons.Default.Person),
     DRIVERS("Chauffeurs", Icons.Default.Person),
     NOTIFICATIONS("Notifications", Icons.Default.Notifications),
-    PROFILE("Profil", Icons.Default.AccountBox),
+    PARTNERS("Partenaires", Icons.Default.AccountBox)
 }
 
 @Composable
