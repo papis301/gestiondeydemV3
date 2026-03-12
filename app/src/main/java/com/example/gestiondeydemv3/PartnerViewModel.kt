@@ -293,4 +293,46 @@ class PartnerViewModel(application: Application) : AndroidViewModel(application)
 
         queue.add(request)
     }
+
+    private val _transactions = mutableStateListOf<PartnerTransaction>()
+    val transactions: List<PartnerTransaction> get() = _transactions
+
+    fun loadPartnerTransactions(partnerId: Int) {
+
+        val url =
+            "https://pisco.alwaysdata.net/get_partner_transactions.php?partner_id=$partnerId"
+
+        val request = JsonArrayRequest(
+            url,
+            { response ->
+
+                _transactions.clear()
+
+                for (i in 0 until response.length()) {
+
+                    val o = response.getJSONObject(i)
+
+                    _transactions.add(
+                        PartnerTransaction(
+                            id = o.getInt("id"),
+                            type = o.getString("type"),
+                            amount = o.getInt("amount"),
+                            oldSolde = o.getInt("old_solde"),
+                            newSolde = o.getInt("new_solde"),
+                            createdAt = o.getString("created_at")
+                        )
+                    )
+                }
+            },
+            {
+                Toast.makeText(
+                    getApplication(),
+                    "Erreur chargement historique",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        )
+
+        queue.add(request)
+    }
 }

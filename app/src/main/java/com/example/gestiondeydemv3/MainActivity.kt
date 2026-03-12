@@ -100,7 +100,21 @@ fun PartnersScreen(
 
     val loading by viewModel.loading
     val partners = viewModel.partners
+
     var showDialog by remember { mutableStateOf(false) }
+    var selectedPartnerHistory by remember { mutableStateOf<Partner?>(null) }
+
+    // 👉 Si on ouvre l'historique
+    if (selectedPartnerHistory != null) {
+
+        PartnerHistoryScreen(
+            partner = selectedPartnerHistory!!,
+            viewModel = viewModel,
+            onBack = { selectedPartnerHistory = null }
+        )
+
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -136,16 +150,27 @@ fun PartnersScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (loading) {
+
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
             }
+
         } else {
+
             LazyColumn {
+
                 items(partners, key = { it.id }) { partner ->
-                    PartnerItem(partner, viewModel)
+
+                    PartnerItem(
+                        partner = partner,
+                        viewModel = viewModel,
+                        onHistoryClick = {
+                            selectedPartnerHistory = it
+                        }
+                    )
                 }
             }
         }
@@ -155,6 +180,7 @@ fun PartnersScreen(
         AddPartnerDialog(
             onDismiss = { showDialog = false },
             onCreate = { nom, email, password, telephone, adresse, commission ->
+
                 viewModel.createPartner(
                     nom,
                     email,
@@ -163,6 +189,7 @@ fun PartnersScreen(
                     adresse,
                     commission
                 )
+
                 showDialog = false
             }
         )
@@ -250,7 +277,8 @@ fun AddPartnerDialog(
 @Composable
 fun PartnerItem(
     partner: Partner,
-    viewModel: PartnerViewModel
+    viewModel: PartnerViewModel,
+    onHistoryClick: (Partner) -> Unit
 ) {
 
     var showDialog by remember { mutableStateOf(false) }
@@ -264,36 +292,31 @@ fun PartnerItem(
     ) {
 
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
 
             Text(
-                text = "🏢 ${partner.nom}",
-                style = MaterialTheme.typography.titleMedium,
+                "🏢 ${partner.nom}",
                 fontWeight = FontWeight.Bold
             )
-
-            Spacer(modifier = Modifier.height(6.dp))
 
             Text("📧 ${partner.email}")
             Text("📞 ${partner.telephone}")
             Text("📍 ${partner.adresse}")
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             Text("💰 Commission : ${partner.commissionPercent}%")
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             Text(
-                text = "💳 Solde : ${partner.solde} FCFA",
-                fontWeight = FontWeight.Bold,
+                "💳 Solde : ${partner.solde} FCFA",
                 color = if (partner.solde > 0)
                     Color(0xFF2E7D32)
                 else
                     Color.Red
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Button(
                 onClick = { showDialog = true },
@@ -302,7 +325,7 @@ fun PartnerItem(
                 Text("Modifier le solde")
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Button(
                 onClick = { showEditDialog = true },
@@ -311,7 +334,16 @@ fun PartnerItem(
                 Text("Modifier")
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Button(
+                onClick = { onHistoryClick(partner) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Historique")
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             OutlinedButton(
                 onClick = { viewModel.deletePartner(partner.id) },
@@ -326,8 +358,7 @@ fun PartnerItem(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "📅 Créé le : ${partner.createdAt}",
-                style = MaterialTheme.typography.bodySmall,
+                "📅 Créé le : ${partner.createdAt}",
                 color = Color.Gray
             )
         }
@@ -1144,6 +1175,87 @@ fun AdminProfileScreen() {
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = { /* logout */ }) {
             Text("Déconnexion")
+        }
+    }
+}
+
+@Composable
+fun PartnerHistoryScreen(
+    partner: Partner,
+    viewModel: PartnerViewModel = viewModel(),
+    onBack: () -> Unit
+) {
+
+    val transactions = viewModel.transactions
+
+    LaunchedEffect(Unit) {
+        viewModel.loadPartnerTransactions(partner.id)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+
+        Text(
+            text = "Historique - ${partner.nom}",
+            style = MaterialTheme.typography.headlineMedium
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyColumn {
+
+            items(transactions) { t ->
+
+                TransactionItem(t)
+            }
+        }
+    }
+}
+
+@Composable
+fun TransactionItem(t: PartnerTransaction) {
+
+    val color = if (t.type == "add")
+        Color(0xFF2E7D32)
+    else
+        Color.Red
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+
+            Text(
+                text = if (t.type == "add")
+                    "➕ Ajout de solde"
+                else
+                    "➖ Retrait de solde",
+                color = color,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text("Montant : ${t.amount} FCFA")
+
+            Text("Solde : ${t.oldSolde} → ${t.newSolde}")
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = t.createdAt,
+                color = Color.Gray,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
